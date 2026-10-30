@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dino-Eats — VIP Dining & Dynamic Cancellation Engine</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Chart.js for Revenue Intelligence -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              blue: '#000080',
+              darkBlue: '#000055',
+              electricBlue: '#0022D6',
+              royalBg: '#020514',
+              cardBg: '#09102b',
+              cardBorder: '#142254',
+              gold: '#F59E0B',
+              goldHover: '#D97706'
+            }
+          },
+          animation: {
+            'pulse-gold': 'pulseGold 2s infinite',
+            'spin-slow': 'spin 12s linear infinite',
+            'logo-glow': 'logoGlow 3s ease-in-out infinite alternate'
+          },
+          keyframes: {
+            pulseGold: {
+              '0%, 100%': { boxShadow: '0 0 0 0 rgba(245, 158, 11, 0.4)' },
+              '50%': { boxShadow: '0 0 15px 4px rgba(245, 158, 11, 0.6)' },
+            },
+            logoGlow: {
+              '0%': { filter: 'drop-shadow(0 0 4px rgba(0, 34, 214, 0.4))' },
+              '100%': { filter: 'drop-shadow(0 0 16px rgba(0, 34, 214, 0.9))' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #020514;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #142254;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #0022d6;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #020514;
+      color: #F8FAFC;
+    }
+
+    h1, h2, h3, h4, .font-display {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    .table-available {
+      fill: #0022D6;
+      stroke: #3b82f6;
+      stroke-width: 2;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .table-available:hover {
+      fill: #2563eb;
+      filter: drop-shadow(0 0 8px rgba(37, 99, 235, 0.8));
+    }
+
+    .table-occupied {
+      fill: #1e293b;
+      stroke: #334155;
+      stroke-width: 2;
+      cursor: not-allowed;
+    }
+
+    .table-cancellation {
+      fill: #F59E0B;
+      stroke: #D97706;
+      stroke-width: 2.5;
+      cursor: pointer;
+      animation: pulseGold 2s infinite;
+    }
+    .table-cancellation:hover {
+      fill: #FBBF24;
+      filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.9));
+    }
+
+    .glass-card {
+      background: rgba(9, 16, 43, 0.90);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(20, 34, 84, 0.8);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-brand-royalBg text-slate-100 antialiased">
+
+  <!-- Top Banner -->
+  <div class="bg-gradient-to-r from-brand-darkBlue via-brand-royalBg to-blue-950 border-b border-brand-cardBorder text-xs py-1.5 px-4">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div class="flex items-center gap-2 text-blue-400 font-mono font-medium">
+        <span class="inline-block w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>
+        <i class="fa-brands fa-github"></i>
+        <span>GitHub Repository Ready — Dino-Eats Dynamic Engine MVP v1.2</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="toggleSystemLogs()" class="text-slate-400 hover:text-white transition flex items-center gap-1 font-mono">
+          <i class="fa-solid fa-terminal"></i> Console Logs (<span id="log-count">0</span>)
+        </button>
+        <button onclick="exportJSONData()" class="px-2.5 py-0.5 bg-blue-950/80 hover:bg-blue-900 text-blue-300 rounded border border-blue-500/30 font-mono transition text-[11px] flex items-center gap-1">
+          <i class="fa-solid fa-download"></i> Export State JSON
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Bar with Custom Logo -->
+  <header class="sticky top-0 z-40 bg-brand-royalBg/95 backdrop-blur-md border-b border-brand-cardBorder shadow-2xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Brand Logo -->
+        <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('discovery')">
+          <div class="relative w-12 h-12 bg-white rounded-xl flex items-center justify-center p-0 shadow-lg shadow-blue-900/50 animate-logo-glow overflow-hidden group border border-blue-500/30">
+            <!-- Updated img src to reference the exact local file name with spaces URL encoded -->
+            <img src="IMG_5250%203_4.JPG" alt="Dino-Eats Logo" class="w-full h-full object-cover relative z-10 transition-transform duration-300 group-hover:scale-105" id="embedded-logo-img">
+          </div>
+          <div>
+            <span class="font-display font-black text-2xl tracking-tight text-white flex items-center gap-0.5">
+              DINO<span class="text-blue-500">-EATS</span>
+            </span>
+            <span class="block text-[9px] text-sky-400 font-mono uppercase tracking-widest -mt-1 font-bold">VIP Dining Marketplace</span>
+          </div>
+        </div>
+
+        <nav class="hidden xl:flex items-center gap-1 bg-brand-darkBlue/80 p-1.5 rounded-2xl border border-brand-cardBorder">
+          <button onclick="switchTab('discovery')" id="nav-discovery" class="nav-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold transition text-blue-300 bg-brand-electricBlue/30 border border-blue-500/40 shadow-sm flex items-center gap-2">
+            <i class="fa-solid fa-compass"></i> Discovery
+          </button>
+          <button onclick="switchTab('marketplace')" id="nav-marketplace" class="nav-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold transition text-slate-300 hover:text-white flex items-center gap-2 relative">
+            <i class="fa-solid fa-bolt text-amber-400"></i> Flash Drops
+            <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          </button>
+          <button onclick="switchTab('floormap')" id="nav-floormap" class="nav-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold transition text-slate-300 hover:text-white flex items-center gap-2">
+            <i class="fa-solid fa-map"></i> Floor Plan
+          </button>
+          <button onclick="switchTab('billsplit')" id="nav-billsplit" class="nav-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold transition text-slate-300 hover:text-white flex items-center gap-2">
+            <i class="fa-solid fa-receipt"></i> Bill Splitter
+          </button>
+          <button onclick="switchTab('b2bops')" id="nav-b2bops" class="nav-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold transition text-slate-300 hover:text-white flex items-center gap-2">
+            <i class="fa-solid fa-store"></i> Restaurant Ops
+          </button>
+          <button onclick="switchTab('analytics')" id="nav-analytics" class="nav-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold transition text-slate-300 hover:text-white flex items-center gap-2">
+            <i class="fa-solid fa-chart-pie"></i> Intelligence Hub
+          </button>
+        </nav>
+
+        <div class="flex items-center gap-3">
+          <div class="xl:hidden">
+            <select onchange="switchTab(this.value)" class="bg-brand-cardBg text-xs border border-brand-cardBorder text-blue-300 rounded-lg p-2 font-semibold">
+              <option value="discovery">Consumer Discovery</option>
+              <option value="marketplace">⚡ Flash Drops Market</option>
+              <option value="floormap">Interactive Floor Map</option>
+              <option value="billsplit">Group Bill Splitter</option>
+              <option value="b2bops">Restaurant Ops Portal</option>
+              <option value="analytics">Analytics Hub</option>
+            </select>
+          </div>
+
+          <div class="hidden sm:flex items-center gap-2 bg-brand-cardBg px-3 py-1.5 rounded-xl border border-brand-cardBorder">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Avatar" class="w-6 h-6 rounded-full object-cover border border-amber-400">
+            <div class="text-left">
+              <span class="block text-xs font-bold text-slate-200">Elena Rostova</span>
+              <span class="block text-[9px] font-mono text-amber-400 font-bold">VIP Founding Tier[cite: 1]</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- TAB 1: CONSUMER DISCOVERY -->
+    <section id="view-discovery" class="tab-view space-y-6">
+      <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-brand-darkBlue via-brand-blue to-blue-900 border border-brand-cardBorder p-8 sm:p-10 shadow-2xl">
+        <div class="absolute -right-12 -bottom-12 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute right-1/3 -top-12 w-64 h-64 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="relative z-10 max-w-2xl space-y-4">
+          <span class="px-3 py-1 rounded-full bg-sky-500/20 text-sky-400 text-xs font-mono font-bold border border-sky-500/30 inline-flex items-center gap-1.5">
+            <i class="fa-solid fa-sparkles text-sky-400"></i> Everybody is a VIP in our APP
+          </span>
+          <h1 class="font-display text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+            Exclusive Table Access. <br><span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-sky-300 to-white">Dynamic Hourly Pricing.</span>
+          </h1>
+          <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
+            Eliminate double bookings and unlock premium tables at London & Mayfair’s elite venues. Real-time cancellation drops automatically decay on an hourly price curve.
+          </p>
+
+          <div class="pt-2 flex flex-wrap sm:flex-nowrap items-center gap-2 bg-brand-darkBlue/90 p-2 rounded-2xl border border-brand-cardBorder">
+            <div class="flex-1 min-w-[140px] px-3 py-2 flex items-center gap-2 border-r border-brand-cardBorder text-slate-400 text-xs">
+              <i class="fa-solid fa-location-dot text-blue-400"></i>
+              <select id="filter-location" onchange="filterDiscoveryCards()" class="bg-transparent text-slate-200 font-semibold focus:outline-none w-full">
+                <option value="All">All Locations</option>
+                <option value="Mayfair">Mayfair</option>
+                <option value="Soho">Soho</option>
+                <option value="Knightsbridge">Knightsbridge</option>
+                <option value="Marylebone">Marylebone</option>
+                <option value="Chelsea">Chelsea</option>
+                <option value="Covent Garden">Covent Garden</option>
+              </select>
+            </div>
+            <div class="flex-1 min-w-[140px] px-3 py-2 flex items-center gap-2 border-r border-brand-cardBorder text-slate-400 text-xs">
+              <i class="fa-solid fa-utensils text-amber-400"></i>
+              <select id="filter-cuisine" onchange="filterDiscoveryCards()" class="bg-transparent text-slate-200 font-semibold focus:outline-none w-full">
+                <option value="All">All Cuisines</option>
+                <option value="Italian">Fine Italian</option>
+                <option value="Japanese">Japanese Omakase</option>
+                <option value="Steakhouse">Prime Steakhouse</option>
+                <option value="French">Haute French</option>
+                <option value="Asian Fusion">Asian Fusion</option>
+                <option value="Mediterranean">Mediterranean</option>
+              </select>
+            </div>
+            <button onclick="switchTab('marketplace')" class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold rounded-xl text-xs transition shadow-lg shadow-blue-900/40 flex items-center justify-center gap-2">
+              <i class="fa-solid fa-bolt text-amber-400"></i> View Flash Drops
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="font-display font-bold text-xl text-white">Featured Partner Restaurants</h2>
+            <p class="text-xs text-slate-400">Live floor plans with verified POS synchronization & 15 tables each</p>
+          </div>
+          <span class="text-xs text-blue-400 font-mono font-bold" id="restaurant-count">10 Venues Live</span>
+        </div>
+
+        <div id="discovery-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      </div>
+    </section>
+
+    <!-- TAB 2: FLASH MARKETPLACE -->
+    <section id="view-marketplace" class="tab-view hidden space-y-6">
+      <div class="glass-card p-6 rounded-3xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div class="space-y-2">
+          <div class="flex items-center gap-2">
+            <span class="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-mono font-bold border border-amber-500/30 animate-pulse">
+              <i class="fa-solid fa-fire"></i> Live Dynamic Decay Active
+            </span>
+            <span class="text-xs text-slate-400 font-mono">Updates Every 1s</span>
+          </div>
+          <h2 class="font-display text-2xl sm:text-3xl font-extrabold text-white">Dynamic Cancellation Marketplace</h2>
+          <p class="text-xs text-slate-300 max-w-xl">
+            High-end venues release last-minute cancellations into this instant flash feed. Tables decay in deposit price hourly as dining window approaches.
+          </p>
+        </div>
+
+        <div class="bg-brand-darkBlue p-4 rounded-2xl border border-brand-cardBorder text-right space-y-1 min-w-[220px]">
+          <span class="text-[10px] uppercase font-mono text-slate-400 block">Proprietary Engine</span>
+          <span class="text-blue-400 font-mono text-sm font-bold block flex items-center justify-end gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span> Real-Time Decay Sync
+          </span>
+          <span class="text-[11px] text-amber-400 font-mono block">Max Flash Discount: 50% Off</span>
+        </div>
+      </div>
+
+      <div class="glass-card p-6 rounded-3xl space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-brand-cardBorder pb-4">
+          <div>
+            <h3 class="font-display font-bold text-lg text-white flex items-center gap-2">
+              <i class="fa-solid fa-sliders text-blue-400"></i> Interactive Hourly Price Decay Simulator
+            </h3>
+            <p class="text-xs text-slate-400">Simulate table price drops automatically over a 4-hour countdown window</p>
+          </div>
+          <div class="text-right font-mono">
+            <span class="text-xs text-slate-400">Base Pre-pay Target: </span>
+            <span class="text-blue-400 font-bold text-sm">£200 Standard Deposit</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-7 space-y-4">
+            <div>
+              <div class="flex justify-between text-xs font-mono mb-2">
+                <span class="text-slate-400">Countdown Window Remaining:</span>
+                <span id="simulator-hours-label" class="text-amber-400 font-bold">2.0 Hours Before Seating</span>
+              </div>
+              <input type="range" id="simulator-slider" min="0.5" max="4.0" step="0.5" value="2.0" oninput="updateDecaySimulator()" class="w-full h-2 bg-brand-darkBlue rounded-lg appearance-none cursor-pointer accent-blue-500">
+              <div class="flex justify-between text-[10px] text-slate-400 font-mono mt-1">
+                <span>0.5h (50% Off)</span>
+                <span>1.0h (40% Off)</span>
+                <span>2.0h (25% Off)</span>
+                <span>3.0h (15% Off)</span>
+                <span>4.0h (5% Off)</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 pt-2">
+              <div class="bg-brand-darkBlue p-3 rounded-2xl border border-brand-cardBorder text-center">
+                <span class="text-[10px] text-slate-400 font-mono uppercase block">Original Spend</span>
+                <span class="text-sm font-bold text-slate-400 line-through">£200.00</span>
+              </div>
+              <div class="bg-brand-darkBlue p-3 rounded-2xl border border-amber-500/30 text-center">
+                <span class="text-[10px] text-amber-400 font-mono uppercase block">Hourly Discount</span>
+                <span id="simulator-discount-pct" class="text-sm font-black text-amber-400">-25% OFF</span>
+              </div>
+              <div class="bg-blue-950/60 p-3 rounded-2xl border border-blue-500/40 text-center">
+                <span class="text-[10px] text-blue-300 font-mono uppercase block">Dynamic Flash Price</span>
+                <span id="simulator-final-price" class="text-base font-black text-blue-300">£150.00</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-5 bg-brand-darkBlue p-4 rounded-2xl border border-brand-cardBorder text-xs space-y-2">
+            <span class="font-bold text-slate-200 block mb-2 font-display">Algorithmic Curve Mechanics</span>
+            <div class="flex justify-between items-center py-1 border-b border-brand-cardBorder/60">
+              <span class="text-slate-400">4 Hours Out:</span>
+              <span class="font-mono text-blue-400 font-semibold">5% Decay (£190)</span>
+            </div>
+            <div class="flex justify-between items-center py-1 border-b border-brand-cardBorder/60">
+              <span class="text-slate-400">3 Hours Out:</span>
+              <span class="font-mono text-blue-400 font-semibold">15% Decay (£170)</span>
+            </div>
+            <div class="flex justify-between items-center py-1 border-b border-brand-cardBorder/60">
+              <span class="text-slate-400">2 Hours Out:</span>
+              <span class="font-mono text-amber-400 font-semibold">25% Decay (£150)</span>
+            </div>
+            <div class="flex justify-between items-center py-1">
+              <span class="text-slate-400">&le; 1 Hour Out:</span>
+              <span class="font-mono text-red-400 font-bold">40% - 50% Decay (£100 - £120)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="flex justify-between items-center">
+          <h3 class="font-display font-bold text-lg text-white flex items-center gap-2">
+            <i class="fa-solid fa-clock text-amber-400"></i> Active Live Drops
+          </h3>
+          <span class="text-xs text-slate-400 font-mono">Live Sync Engine Active</span>
+        </div>
+
+        <div id="flash-drops-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+      </div>
+    </section>
+
+    <!-- TAB 3: FLOOR PLAN -->
+    <section id="view-floormap" class="tab-view hidden space-y-6">
+      <div class="glass-card p-6 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <select id="floormap-venue-select" onchange="loadFloorMapVenue(this.value)" class="bg-brand-darkBlue border border-brand-cardBorder text-white font-display font-bold text-base rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500"></select>
+            <span class="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs font-mono">POS Synced (15 Tables)</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">Select table directly from real-time 15-table floor architecture to view specs & book.</p>
+        </div>
+
+        <div class="flex items-center gap-4 text-xs font-mono">
+          <div class="flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded-sm bg-blue-600 border border-blue-400"></span>
+            <span class="text-slate-300">Available</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded-sm bg-amber-500 border border-amber-400 animate-pulse"></span>
+            <span class="text-amber-400 font-bold">Last-Minute Drop</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded-sm bg-slate-700 border border-slate-600"></span>
+            <span class="text-slate-500">Occupied</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-8 glass-card p-6 rounded-3xl flex flex-col items-center justify-center min-h-[520px] relative overflow-hidden">
+          <div class="absolute top-4 left-4 text-[10px] font-mono text-slate-400 uppercase tracking-widest">
+            Architectural Floor Layout (15 Tables)
+          </div>
+          <div class="w-full max-w-xl aspect-square relative">
+            <svg id="floor-map-svg" viewBox="0 0 500 500" class="w-full h-full drop-shadow-2xl"></svg>
+          </div>
+          <div class="absolute bottom-4 right-4 text-[11px] font-mono text-slate-300 bg-brand-darkBlue px-3 py-1 rounded-lg border border-brand-cardBorder">
+            <i class="fa-solid fa-hand-pointer text-blue-400"></i> Click table to inspect
+          </div>
+        </div>
+
+        <div class="lg:col-span-4 space-y-4">
+          <div id="table-details-card" class="glass-card p-6 rounded-3xl min-h-[520px] flex flex-col justify-between">
+            <div class="text-center my-auto space-y-3">
+              <div class="w-16 h-16 rounded-2xl bg-brand-darkBlue flex items-center justify-center text-slate-500 text-2xl mx-auto border border-brand-cardBorder">
+                <i class="fa-solid fa-vector-square"></i>
+              </div>
+              <h4 class="font-display font-bold text-slate-300">No Table Selected</h4>
+              <p class="text-xs text-slate-400 max-w-xs mx-auto">Click any highlighted table on the floor map to view seating quality, minimum spend, and dynamic checkout options.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: BILL SPLITTER -->
+    <section id="view-billsplit" class="tab-view hidden space-y-6">
+      <div class="glass-card p-6 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="font-display text-2xl font-extrabold text-white">Integrated Group Bill Splitter</h2>
+          <p class="text-xs text-slate-400">Assign specific items to party guests with live tax, service charge, and instant payment links.</p>
+        </div>
+        <button onclick="loadSampleReceipt()" class="px-4 py-2 bg-brand-darkBlue hover:bg-blue-900 text-blue-300 rounded-xl text-xs font-mono font-bold border border-blue-500/30 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-rotate-left"></i> Load Sample Mayfair Bill (£328.50)
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-7 glass-card p-6 rounded-3xl space-y-6">
+          <div class="flex justify-between items-center border-b border-brand-cardBorder pb-4">
+            <h3 class="font-display font-bold text-lg text-white">Receipt Itemization</h3>
+            <span class="text-xs font-mono text-slate-400" id="bill-item-count">3 Items</span>
+          </div>
+
+          <div class="grid grid-cols-12 gap-2 bg-brand-darkBlue p-3 rounded-2xl border border-brand-cardBorder">
+            <input type="text" id="new-item-name" placeholder="Item Name (e.g. Wagyu Ribeye)" class="col-span-6 bg-brand-royalBg border border-brand-cardBorder text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+            <input type="number" id="new-item-price" placeholder="Price (£)" class="col-span-4 bg-brand-royalBg border border-brand-cardBorder text-xs rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+            <button onclick="addBillItem()" class="col-span-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center">
+              <i class="fa-solid fa-plus"></i>
+            </button>
+          </div>
+
+          <div id="bill-items-container" class="space-y-3"></div>
+
+          <div class="border-t border-brand-cardBorder pt-4 space-y-3">
+            <div class="flex justify-between items-center">
+              <h4 class="font-display font-bold text-sm text-slate-300">Dining Party Guests</h4>
+              <button onclick="addPartyMemberPrompt()" class="text-xs text-blue-400 hover:underline font-mono">+ Add Guest</button>
+            </div>
+            <div id="party-members-pills" class="flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-5 space-y-4">
+          <div class="glass-card p-6 rounded-3xl space-y-4">
+            <h3 class="font-display font-bold text-lg text-white border-b border-brand-cardBorder pb-3">Party Breakdowns</h3>
+            <div id="party-breakdown-list" class="space-y-3"></div>
+
+            <div class="bg-brand-darkBlue p-4 rounded-2xl border border-brand-cardBorder space-y-2 text-xs font-mono">
+              <div class="flex justify-between text-slate-400">
+                <span>Items Subtotal:</span>
+                <span id="bill-subtotal" class="text-slate-200">£0.00</span>
+              </div>
+              <div class="flex justify-between text-slate-400">
+                <span>Discretionary Service (12.5%):</span>
+                <span id="bill-service" class="text-slate-200">£0.00</span>
+              </div>
+              <div class="flex justify-between text-slate-400">
+                <span>VAT (20% Incl.):</span>
+                <span id="bill-vat" class="text-slate-200">£0.00</span>
+              </div>
+              <div class="flex justify-between text-blue-400 font-bold text-sm pt-2 border-t border-brand-cardBorder">
+                <span>Grand Total:</span>
+                <span id="bill-grand-total">£0.00</span>
+              </div>
+            </div>
+
+            <button onclick="triggerGroupPaymentLinks()" class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold rounded-xl text-xs transition shadow-lg shadow-blue-900/40 flex items-center justify-center gap-2">
+              <i class="fa-solid fa-paper-plane"></i> Dispatch Monzo / Apple Pay Split Links
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: RESTAURANT B2B OPERATIONS -->
+    <section id="view-b2bops" class="tab-view hidden space-y-6">
+      <div class="glass-card p-6 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <span class="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-mono font-bold border border-blue-500/30">
+            Restaurant Owner Portal
+          </span>
+          <h2 class="font-display text-2xl font-extrabold text-white mt-1">Picolinos Mayfair — B2B Operations Engine</h2>
+          <p class="text-xs text-slate-400">Log cancellations in 1-click & optimize yield through dynamic automated marketplace listing.</p>
+        </div>
+        <button id="pos-sync-btn" onclick="togglePOSSync()" class="px-4 py-2 bg-blue-500/20 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-mono font-bold flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span> POS Sync Active (Lightspeed)
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-5 glass-card p-6 rounded-3xl space-y-4">
+          <h3 class="font-display font-bold text-lg text-white flex items-center gap-2">
+            <i class="fa-solid fa-bolt text-amber-400"></i> Report Last-Minute Cancellation
+          </h3>
+          <p class="text-xs text-slate-400">Instantly release a cancelled table into Dino-Eats dynamic decay marketplace to recover revenue.</p>
+
+          <form onsubmit="handleB2BCancellationSubmit(event)" class="space-y-4 pt-2">
+            <div>
+              <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Select Cancelled Table (15 Active)</label>
+              <select id="b2b-table-select" class="w-full bg-brand-darkBlue border border-brand-cardBorder text-white text-xs rounded-xl p-3 focus:outline-none focus:border-amber-500"></select>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Original Minimum Spend (£)</label>
+                <input type="number" id="b2b-min-spend" value="200" class="w-full bg-brand-darkBlue border border-brand-cardBorder text-white text-xs rounded-xl p-3 focus:outline-none">
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase mb-1 text-slate-300">Hours Until Seating</label>
+                <input type="number" id="b2b-hours" min="0.5" max="6" step="0.5" value="2.0" class="w-full bg-brand-darkBlue border border-brand-cardBorder text-white text-xs rounded-xl p-3 focus:outline-none">
+              </div>
+            </div>
+            <button type="submit" class="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold rounded-xl text-xs shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-fire"></i> Publish Dynamic Flash Drop
+            </button>
+          </form>
+        </div>
+
+        <div class="lg:col-span-7 glass-card p-6 rounded-3xl space-y-6">
+          <h3 class="font-display font-bold text-lg text-white">Table Yield & Phantom Booking Recovery</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="bg-red-950/40 p-4 rounded-2xl border border-red-500/30 space-y-2">
+              <span class="text-[10px] uppercase font-mono text-red-400 font-bold">Traditional Last-Minute Loss</span>
+              <p class="text-3xl font-black text-red-400">£0 Recovery</p>
+              <p class="text-xs text-slate-400">100% loss on unfulfilled covers and empty tables.</p>
+            </div>
+            <div class="bg-blue-950/40 p-4 rounded-2xl border border-blue-500/40 space-y-2">
+              <span class="text-[10px] uppercase font-mono text-blue-300 font-bold">Dino-Eats Recovery Rate</span>
+              <p class="text-3xl font-black text-blue-300">88.4% Fill Rate</p>
+              <p class="text-xs text-slate-400">Avg £165 recovered per cancellation within 45 mins.</p>
+            </div>
+          </div>
+
+          <div class="space-y-3 border-t border-brand-cardBorder pt-4">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-bold text-slate-300">Live POS Table Inventory Sync (15 Tables)</span>
+              <button onclick="clearPhantomBookings()" class="text-blue-400 hover:underline font-mono">Purge Phantom Hold Locks</button>
+            </div>
+            <div id="b2b-pos-status-list" class="space-y-2 max-h-64 overflow-y-auto pr-1"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: INTELLIGENCE HUB -->
+    <section id="view-analytics" class="tab-view hidden space-y-6">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="glass-card p-5 rounded-3xl space-y-1">
+          <span class="text-[10px] font-mono uppercase text-slate-400 block">Total Network GMV</span>
+          <p class="text-2xl sm:text-3xl font-extrabold text-white">£1,482,900</p>
+          <span class="text-xs text-blue-400 font-mono font-semibold"><i class="fa-solid fa-arrow-trend-up"></i> +42.8% MoM</span>
+        </div>
+        <div class="glass-card p-5 rounded-3xl space-y-1">
+          <span class="text-[10px] font-mono uppercase text-slate-400 block">Cancellation Recovery Rate</span>
+          <p class="text-2xl sm:text-3xl font-extrabold text-blue-400">91.4%</p>
+          <span class="text-xs text-slate-400 font-mono">Avg 24 min sell-through</span>
+        </div>
+        <div class="glass-card p-5 rounded-3xl space-y-1">
+          <span class="text-[10px] font-mono uppercase text-slate-400 block">Avg Lead Time Saved</span>
+          <p class="text-2xl sm:text-3xl font-extrabold text-amber-400">2.6 Hours</p>
+          <span class="text-xs text-slate-400 font-mono">Before service start</span>
+        </div>
+        <div class="glass-card p-5 rounded-3xl space-y-1">
+          <span class="text-[10px] font-mono uppercase text-slate-400 block">Platform Commission</span>
+          <p class="text-2xl sm:text-3xl font-extrabold text-white">£126,046</p>
+          <span class="text-xs text-blue-400 font-mono">8.5% take rate</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-8 glass-card p-6 rounded-3xl space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-display font-bold text-lg text-white">Revenue Recovery vs Phantom Loss across 10 Venues</h3>
+            <span class="text-xs text-slate-400 font-mono">2026 YTD Performance</span>
+          </div>
+          <div class="h-64 relative">
+            <canvas id="revenueChart"></canvas>
+          </div>
+        </div>
+
+        <div class="lg:col-span-4 glass-card p-6 rounded-3xl space-y-4">
+          <h3 class="font-display font-bold text-lg text-white border-b border-brand-cardBorder pb-3">Algorithm Parameters</h3>
+          <div class="space-y-4 text-xs font-mono">
+            <div>
+              <label class="block text-slate-400 mb-1">Baseline Discount Cap (%)</label>
+              <input type="range" id="algo-cap" min="20" max="60" value="50" oninput="updateAlgoConfig()" class="w-full accent-blue-500">
+              <span id="algo-cap-val" class="text-blue-400 font-bold">50% Maximum Discount</span>
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Decay Exponential Steepness</label>
+              <select id="algo-steepness" onchange="updateAlgoConfig()" class="w-full bg-brand-darkBlue border border-brand-cardBorder text-white rounded-xl p-2.5">
+                <option value="linear">Linear Decay (12.5%/hr)</option>
+                <option value="exponential" selected>Accelerated Curve (Late Drop Focus)</option>
+              </select>
+            </div>
+            <div class="p-3 bg-brand-darkBlue rounded-xl border border-brand-cardBorder text-[11px] text-slate-400 leading-relaxed">
+              <span class="text-slate-200 font-bold block mb-1">Formula Model:</span>
+              <code>P(t) = P_base * (1 - Cap * (1 - t/T_total)^2)</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Checkout Modal -->
+  <div id="checkout-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card max-w-md w-full rounded-3xl p-6 space-y-6 shadow-2xl relative">
+      <button onclick="closeCheckoutModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="text-center space-y-1">
+        <span class="px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-mono font-bold">
+          <i class="fa-solid fa-lock"></i> Encrypted Checkout
+        </span>
+        <h3 class="font-display font-extrabold text-2xl text-white">Confirm Table Pre-Pay</h3>
+        <p class="text-xs text-slate-400" id="checkout-subtitle">Picolinos Mayfair — Table T-04</p>
+      </div>
+
+      <div class="bg-brand-darkBlue p-4 rounded-2xl border border-brand-cardBorder space-y-2 text-xs font-mono">
+        <div class="flex justify-between text-slate-400">
+          <span>Table Requirement:</span>
+          <span id="checkout-table-spec" class="text-slate-200">Table for 4 (Booth)</span>
+        </div>
+        <div class="flex justify-between text-slate-400">
+          <span>Base Deposit Target:</span>
+          <span id="checkout-base-price" class="text-slate-400 line-through">£200.00</span>
+        </div>
+        <div class="flex justify-between text-amber-400 font-bold">
+          <span>Hourly Flash Discount:</span>
+          <span id="checkout-discount-val">-25% OFF</span>
+        </div>
+        <div class="flex justify-between text-blue-400 font-bold text-sm pt-2 border-t border-brand-cardBorder">
+          <span>Amount Due Now:</span>
+          <span id="checkout-final-price">£150.00</span>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <button onclick="processSimulatedPayment('Apple Pay')" class="w-full py-3 bg-white text-slate-950 hover:bg-slate-100 font-black rounded-2xl text-sm transition flex items-center justify-center gap-2 shadow-lg">
+          <i class="fa-brands fa-apple text-base"></i> Pay with Apple Pay
+        </button>
+        <button onclick="processSimulatedPayment('Credit Card')" class="w-full py-3 bg-brand-darkBlue hover:bg-blue-900 text-white font-bold rounded-2xl text-xs transition border border-brand-cardBorder flex items-center justify-center gap-2">
+          <i class="fa-solid fa-credit-card"></i> Pay with Credit Card
+        </button>
+      </div>
+      <p class="text-[10px] text-center text-slate-400 font-mono">Pre-payment locks table instantly. Zero walkouts. Guaranteed seat.</p>
+    </div>
+  </div>
+
+  <!-- Reservation Ticket Modal -->
+  <div id="ticket-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card max-w-sm w-full rounded-3xl border border-blue-500/40 p-6 space-y-6 text-center shadow-2xl relative">
+      <div class="w-16 h-16 bg-blue-500/20 text-blue-400 rounded-full flex items-center justify-center text-3xl mx-auto border border-blue-500/30">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+      <div class="space-y-1">
+        <h3 class="font-display font-black text-2xl text-white">Table Confirmed!</h3>
+        <p class="text-xs text-slate-400">Present QR ticket upon arrival at venue</p>
+      </div>
+      <div class="bg-white p-4 rounded-2xl w-48 h-48 mx-auto flex items-center justify-center border-4 border-blue-500 shadow-xl">
+        <div id="ticket-qr" class="text-slate-950 font-mono text-[10px] text-center font-bold">
+          <i class="fa-solid fa-qrcode text-8xl text-brand-blue"></i>
+          <span class="block mt-1 font-mono text-xs" id="ticket-ref-code">REF-DINO-8821</span>
+        </div>
+      </div>
+      <div class="text-xs font-mono text-slate-300 bg-brand-darkBlue p-3 rounded-xl border border-brand-cardBorder space-y-1">
+        <p id="ticket-venue-name" class="font-bold text-blue-400">Picolinos — Mayfair</p>
+        <p id="ticket-time-spec" class="text-slate-400">Seating Time: In 1 Hour • Table T-04</p>
+      </div>
+      <button onclick="closeTicketModal()" class="w-full py-2.5 bg-brand-darkBlue hover:bg-blue-900 text-slate-200 font-bold rounded-xl text-xs transition border border-brand-cardBorder">
+        Done & Close
+      </button>
+    </div>
+  </div>
+
+  <!-- Console Logs Drawer -->
+  <div id="logs-drawer" class="fixed bottom-0 left-0 right-0 bg-brand-darkBlue border-t border-brand-cardBorder z-50 hidden max-h-60 overflow-y-auto font-mono text-xs p-4 space-y-2">
+    <div class="flex justify-between items-center text-slate-400 border-b border-brand-cardBorder pb-2">
+      <span class="font-bold text-blue-400"><i class="fa-solid fa-terminal"></i> Dino-Eats Dynamic Engine Console</span>
+      <button onclick="toggleSystemLogs()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="logs-content" class="space-y-1 text-[11px] text-slate-300"></div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none"></div>
+
+  <script>
+    function generate15Tables() {
+      const tables = [];
+      const qualities = ['Window View', 'VIP Booth', 'Main Floor', 'Patio Side', "Chef's Counter", 'Private Alcove'];
+      let tableIndex = 1;
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 5; col++) {
+          const id = `T-${tableIndex < 10 ? '0' + tableIndex : tableIndex}`;
+          const x = 30 + col * 90;
+          const y = 40 + row * 140;
+          const seats = [2, 4, 4, 6, 8][tableIndex % 5];
+          const shape = tableIndex % 2 === 0 ? 'rect' : 'circle';
+          
+          let status = 'available';
+          if (tableIndex === 4 || tableIndex === 9 || tableIndex === 14) status = 'cancellation';
+          else if (tableIndex % 3 === 0) status = 'occupied';
+
+          tables.push({
+            id: id, x: x, y: y,
+            size: shape === 'circle' ? 52 : 56,
+            shape: shape, seats: seats,
+            quality: qualities[tableIndex % qualities.length],
+            status: status, price: 100 + (seats * 25)
+          });
+          tableIndex++;
+        }
+      }
+      return tables;
+    }
+
+    const currentVenueMapTables = {};
+    const state = {
+      activeTab: 'discovery',
+      systemLogs: [],
+      posSyncActive: true,
+      selectedTableForCheckout: null,
+      selectedVenueId: 'picolinos',
+      restaurants: [
+        { id: 'picolinos', name: 'Picolinos', location: 'Mayfair', cuisine: 'Italian', rating: 4.9, image: 'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=600&auto=format&fit=crop&q=80', activeDrops: 3, tableCount: 15 },
+        { id: 'losteria', name: "L'Osteria", location: 'Soho', cuisine: 'Italian', rating: 4.8, image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&auto=format&fit=crop&q=80', activeDrops: 2, tableCount: 15 },
+        { id: 'velvet', name: 'The Velvet Cut', location: 'Knightsbridge', cuisine: 'Steakhouse', rating: 4.9, image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop&q=80', activeDrops: 2, tableCount: 15 },
+        { id: 'sakura', name: 'Sakura Omakase', location: 'Mayfair', cuisine: 'Japanese', rating: 5.0, image: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=600&auto=format&fit=crop&q=80', activeDrops: 1, tableCount: 15 },
+        { id: 'lemarquis', name: 'Le Marquis', location: 'Marylebone', cuisine: 'French', rating: 4.7, image: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&auto=format&fit=crop&q=80', activeDrops: 3, tableCount: 15 },
+        { id: 'celestial', name: 'Celestial Rooftop', location: 'Soho', cuisine: 'Asian Fusion', rating: 4.9, image: 'https://images.unsplash.com/photo-1537047902294-62a40c20a6ae?w=600&auto=format&fit=crop&q=80', activeDrops: 2, tableCount: 15 },
+        { id: 'riviera', name: 'Riviera Club', location: 'Chelsea', cuisine: 'Mediterranean', rating: 4.8, image: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=600&auto=format&fit=crop&q=80', activeDrops: 1, tableCount: 15 },
+        { id: 'cutler', name: 'The Cutler House', location: 'Covent Garden', cuisine: 'Steakhouse', rating: 4.6, image: 'https://images.unsplash.com/photo-1502301103665-0b95cc738daf?w=600&auto=format&fit=crop&q=80', activeDrops: 2, tableCount: 15 },
+        { id: 'nobu-mayfair', name: 'Nishi Lounge', location: 'Mayfair', cuisine: 'Japanese', rating: 4.9, image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&fit=crop&q=80', activeDrops: 3, tableCount: 15 },
+        { id: 'palazzo', name: 'Palazzo Grand', location: 'Knightsbridge', cuisine: 'Italian', rating: 4.9, image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop&q=80', activeDrops: 2, tableCount: 15 }
+      ],
+      flashDrops: [
+        { id: 'DROP-101', restaurantId: 'picolinos', restaurantName: 'Picolinos — Mayfair', tableNum: 'T-04', tableQuality: 'Corner VIP Booth', seats: 4, basePrice: 200, secondsRemaining: 7200, initialHours: 2.0 },
+        { id: 'DROP-102', restaurantId: 'losteria', restaurantName: "L'Osteria — Soho", tableNum: 'T-09', tableQuality: 'Window Streetview', seats: 2, basePrice: 120, secondsRemaining: 3600, initialHours: 1.0 },
+        { id: 'DROP-103', restaurantId: 'velvet', restaurantName: 'The Velvet Cut — Knightsbridge', tableNum: 'T-14', tableQuality: "Chef's Counter", seats: 6, basePrice: 350, secondsRemaining: 10800, initialHours: 3.0 },
+        { id: 'DROP-104', restaurantId: 'sakura', restaurantName: 'Sakura Omakase — Mayfair', tableNum: 'T-04', tableQuality: 'VIP Alcove Bar', seats: 2, basePrice: 280, secondsRemaining: 5400, initialHours: 1.5 },
+        { id: 'DROP-105', restaurantId: 'lemarquis', restaurantName: 'Le Marquis — Marylebone', tableNum: 'T-09', tableQuality: 'Private Courtyard Table', seats: 4, basePrice: 220, secondsRemaining: 9000, initialHours: 2.5 }
+      ],
+      billItems: [
+        { id: 1, name: 'Wagyu Ribeye Steak (400g)', price: 85.00, assignedTo: ['Alex', 'You'] },
+        { id: 2, name: 'Barolo DOCG Red Wine 2018', price: 120.00, assignedTo: ['Alex', 'Sarah', 'Marcus', 'You'] },
+        { id: 3, name: 'Black Truffle Tagliolini', price: 38.00, assignedTo: ['Sarah'] },
+        { id: 4, name: 'Tiramisu Speciale', price: 16.00, assignedTo: ['Marcus', 'You'] }
+      ],
+      partyMembers: ['You', 'Alex', 'Sarah', 'Marcus']
+    };
+
+    state.restaurants.forEach(r => { currentVenueMapTables[r.id] = generate15Tables(); });
+
+    function calculateDecayedPrice(basePrice, secondsRemaining) {
+      const hoursRemaining = secondsRemaining / 3600;
+      let discountPct = 0;
+      if (hoursRemaining <= 0.5) discountPct = 0.50;
+      else if (hoursRemaining <= 1.0) discountPct = 0.40;
+      else if (hoursRemaining <= 2.0) discountPct = 0.25;
+      else if (hoursRemaining <= 3.0) discountPct = 0.15;
+      else discountPct = 0.05;
+
+      const finalPrice = basePrice * (1 - discountPct);
+      return { discountPct: Math.round(discountPct * 100), finalPrice: finalPrice.toFixed(2), savings: (basePrice - finalPrice).toFixed(2) };
+    }
+
+    setInterval(() => {
+      state.flashDrops.forEach(drop => { if (drop.secondsRemaining > 0) drop.secondsRemaining -= 1; });
+      if (state.activeTab === 'marketplace') updateFlashTimersDOM();
+    }, 1000);
+
+    window.onload = function() {
+      logSystemEvent("Dino-Eats Engine initialized with 10 Restaurants & 15 Tables per venue.");
+      renderDiscoveryCards();
+      renderFlashMarketplace();
+      populateFloorMapDropdown();
+      loadFloorMapVenue('picolinos');
+      renderBillSplitter();
+      populateB2BTableDropdown();
+      renderB2BStatusList();
+      initAnalyticsChart();
+    };
+
+    function switchTab(tabId) {
+      state.activeTab = tabId;
+      document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.className = "nav-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold transition text-slate-300 hover:text-white flex items-center gap-2";
+      });
+      const activeBtn = document.getElementById(`nav-${tabId}`);
+      if (activeBtn) activeBtn.className = "nav-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold transition text-blue-300 bg-brand-electricBlue/30 border border-blue-500/40 shadow-sm flex items-center gap-2";
+      logSystemEvent(`View switched to: [${tabId.toUpperCase()}]`);
+    }
+
+    function renderDiscoveryCards() {
+      const container = document.getElementById('discovery-grid');
+      const location = document.getElementById('filter-location').value;
+      const cuisine = document.getElementById('filter-cuisine').value;
+
+      const filtered = state.restaurants.filter(r => (location === 'All' || r.location === location) && (cuisine === 'All' || r.cuisine === cuisine));
+      document.getElementById('restaurant-count').innerText = `${filtered.length} Venues Live`;
+
+      container.innerHTML = filtered.map(r => `
+        <div class="glass-card rounded-3xl overflow-hidden hover:border-blue-500/60 transition group flex flex-col justify-between">
+          <div>
+            <div class="relative h-48 overflow-hidden">
+              <img src="${r.image}" alt="${r.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+              <div class="absolute inset-0 bg-gradient-to-t from-brand-royalBg via-transparent to-transparent"></div>
+              <div class="absolute top-3 left-3 bg-brand-darkBlue/90 backdrop-blur-md px-2.5 py-1 rounded-xl text-xs font-bold text-blue-300 border border-brand-cardBorder flex items-center gap-1">
+                <i class="fa-solid fa-star text-amber-400"></i> ${r.rating}
+              </div>
+              <div class="absolute top-3 right-3 bg-amber-500 text-slate-950 px-2.5 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1 animate-pulse">
+                <i class="fa-solid fa-bolt"></i> ${r.activeDrops} Flash Drops
+              </div>
+            </div>
+            <div class="p-5 space-y-2">
+              <h3 class="font-display font-extrabold text-lg text-white">${r.name}</h3>
+              <p class="text-xs text-slate-400">${r.location} • Fine ${r.cuisine} • <span class="text-blue-400 font-mono font-bold">${r.tableCount} Tables</span></p>
+            </div>
+          </div>
+          <div class="p-5 pt-0 flex gap-2">
+            <button onclick="loadFloorMapVenue('${r.id}'); switchTab('floormap');" class="flex-1 py-2.5 bg-brand-darkBlue hover:bg-blue-900 text-slate-200 font-bold rounded-xl text-xs transition border border-brand-cardBorder flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-map"></i> View 15-Table Map
+            </button>
+            <button onclick="switchTab('marketplace')" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition">
+              <i class="fa-solid fa-bolt text-amber-400"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function filterDiscoveryCards() { renderDiscoveryCards(); }
+
+    function renderFlashMarketplace() {
+      const grid = document.getElementById('flash-drops-grid');
+      grid.innerHTML = state.flashDrops.map(drop => {
+        const decay = calculateDecayedPrice(drop.basePrice, drop.secondsRemaining);
+        return `
+          <div class="glass-card rounded-3xl border border-amber-500/30 p-5 space-y-4 relative hover:border-amber-400 transition shadow-xl">
+            <div class="flex justify-between items-center border-b border-brand-cardBorder pb-3">
+              <div>
+                <span class="text-xs font-extrabold text-amber-400 font-mono flex items-center gap-1">
+                  <i class="fa-solid fa-fire"></i> ${drop.tableNum} • ${drop.tableQuality}
+                </span>
+                <h4 class="font-display font-extrabold text-base text-white mt-0.5">${drop.restaurantName}</h4>
+              </div>
+              <div class="bg-amber-500/10 border border-amber-500/30 text-amber-400 px-2.5 py-1 rounded-xl text-right font-mono">
+                <span class="block text-[9px] uppercase font-bold text-slate-400">Countdown</span>
+                <span id="timer-${drop.id}" class="text-xs font-black">${formatSeconds(drop.secondsRemaining)}</span>
+              </div>
+            </div>
+            <div class="bg-brand-darkBlue p-3.5 rounded-2xl border border-brand-cardBorder flex justify-between items-center font-mono">
+              <div>
+                <span class="text-[10px] text-slate-400 uppercase block">Original Deposit</span>
+                <span class="text-xs text-slate-400 line-through">£${drop.basePrice}.00</span>
+              </div>
+              <div class="text-center">
+                <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-xs font-bold border border-amber-500/30">-${decay.discountPct}% OFF</span>
+              </div>
+              <div class="text-right">
+                <span class="text-[10px] text-blue-400 uppercase font-bold block">Dynamic Price</span>
+                <span id="price-${drop.id}" class="text-lg font-black text-blue-300">£${decay.finalPrice}</span>
+              </div>
+            </div>
+            <button onclick="openCheckoutModal('${drop.id}')" class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-bold rounded-xl text-xs transition shadow-lg shadow-blue-900/40 flex items-center justify-center gap-2">
+              <i class="fa-solid fa-bolt text-amber-400"></i> Claim Table Now
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateFlashTimersDOM() {
+      state.flashDrops.forEach(drop => {
+        const timerEl = document.getElementById(`timer-${drop.id}`);
+        const priceEl = document.getElementById(`price-${drop.id}`);
+        if (timerEl) timerEl.innerText = formatSeconds(drop.secondsRemaining);
+        if (priceEl) {
+          const decay = calculateDecayedPrice(drop.basePrice, drop.secondsRemaining);
+          priceEl.innerText = `£${decay.finalPrice}`;
+        }
+      });
+    }
+
+    function formatSeconds(secs) {
+      if (secs <= 0) return "00:00:00";
+      const h = Math.floor(secs / 3600);
+      const m = Math.floor((secs % 3600) / 60);
+      const s = secs % 60;
+      return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+
+    function updateDecaySimulator() {
+      const sliderVal = parseFloat(document.getElementById('simulator-slider').value);
+      const base = 200;
+      let discount = 0.05;
+      if (sliderVal <= 0.5) discount = 0.50;
+      else if (sliderVal <= 1.0) discount = 0.40;
+      else if (sliderVal <= 2.0) discount = 0.25;
+      else if (sliderVal <= 3.0) discount = 0.15;
+
+      document.getElementById('simulator-hours-label').innerText = `${sliderVal.toFixed(1)} Hours Before Seating`;
+      document.getElementById('simulator-discount-pct').innerText = `-${Math.round(discount * 100)}% OFF`;
+      document.getElementById('simulator-final-price').innerText = `£${(base * (1 - discount)).toFixed(2)}`;
+    }
+
+    function populateFloorMapDropdown() {
+      const sel = document.getElementById('floormap-venue-select');
+      sel.innerHTML = state.restaurants.map(r => `<option value="${r.id}">${r.name} — ${r.location}</option>`).join('');
+    }
+
+    function loadFloorMapVenue(venueId) {
+      state.selectedVenueId = venueId;
+      const sel = document.getElementById('floormap-venue-select');
+      if (sel) sel.value = venueId;
+      renderFloorMapSVG(venueId);
+    }
+
+    function renderFloorMapSVG(venueId) {
+      const svg = document.getElementById('floor-map-svg');
+      const tables = currentVenueMapTables[venueId] || generate15Tables();
+
+      svg.innerHTML = tables.map(t => {
+        let cssClass = 'table-available';
+        if (t.status === 'occupied') cssClass = 'table-occupied';
+        else if (t.status === 'cancellation') cssClass = 'table-cancellation';
+
+        if (t.shape === 'rect') {
+          return `<rect x="${t.x}" y="${t.y}" width="${t.size}" height="${t.size}" rx="12" class="${cssClass}" onclick="inspectTable('${venueId}', '${t.id}')"></rect>
+                  <text x="${t.x + t.size/2}" y="${t.y + t.size/2 + 5}" fill="#ffffff" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle" pointer-events="none">${t.id}</text>`;
+        } else {
+          const r = t.size / 2;
+          return `<circle cx="${t.x + r}" cy="${t.y + r}" r="${r}" class="${cssClass}" onclick="inspectTable('${venueId}', '${t.id}')"></circle>
+                  <text x="${t.x + r}" y="${t.y + r + 4}" fill="#ffffff" font-size="11" font-family="monospace" font-weight="bold" text-anchor="middle" pointer-events="none">${t.id}</text>`;
+        }
+      }).join('');
+    }
+
+    function inspectTable(venueId, tableId) {
+      const tables = currentVenueMapTables[venueId];
+      const table = tables.find(t => t.id === tableId);
+      const venue = state.restaurants.find(r => r.id === venueId);
+      const card = document.getElementById('table-details-card');
+
+      if (!table) return;
+      state.selectedTableForCheckout = { venue, table };
+
+      let badgeColor = 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+      let statusText = 'Available for Reservation';
+      if (table.status === 'occupied') {
+        badgeColor = 'bg-slate-800 text-slate-400 border-slate-700';
+        statusText = 'Currently Occupied';
+      } else if (table.status === 'cancellation') {
+        badgeColor = 'bg-amber-500/20 text-amber-400 border-amber-500/30 animate-pulse';
+        statusText = '⚡ Last-Minute Flash Cancellation';
+      }
+
+      card.innerHTML = `
+        <div class="space-y-4">
+          <div class="flex justify-between items-start border-b border-brand-cardBorder pb-3">
+            <div>
+              <span class="px-2.5 py-1 rounded-full text-xs font-mono font-bold border ${badgeColor}">${statusText}</span>
+              <h4 class="font-display font-black text-xl text-white mt-2">${venue.name} — ${table.id}</h4>
+              <p class="text-xs text-slate-400">${venue.location} • ${table.quality}</p>
+            </div>
+          </div>
+          <div class="bg-brand-darkBlue p-4 rounded-2xl border border-brand-cardBorder space-y-2 text-xs font-mono">
+            <div class="flex justify-between text-slate-400">
+              <span>Seating Capacity:</span>
+              <span class="text-slate-200">${table.seats} Guests</span>
+            </div>
+            <div class="flex justify-between text-slate-400">
+              <span>Table Quality:</span>
+              <span class="text-slate-200">${table.quality}</span>
+            </div>
+            <div class="flex justify-between text-blue-400 font-bold text-sm pt-2 border-t border-brand-cardBorder">
+              <span>Minimum Deposit:</span>
+              <span>£${table.price}.00</span>
+            </div>
+          </div>
+        </div>
+        ${table.status !== 'occupied' ? `
+          <button onclick="openCheckoutModalForSelected()" class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 text-white font-bold rounded-xl text-xs transition shadow-lg flex items-center justify-center gap-2">
+            <i class="fa-solid fa-bolt text-amber-400"></i> Instant Pre-Pay & Lock Table
+          </button>
+        ` : `
+          <div class="p-3 bg-slate-900 rounded-xl text-center text-xs text-slate-500 font-mono">
+            Table occupied. Check back during cancellation windows.
+          </div>
+        `}
+      `;
+      logSystemEvent(`Inspected table ${table.id} at ${venue.name}`);
+    }
+
+    function renderBillSplitter() {
+      const container = document.getElementById('bill-items-container');
+      const partyContainer = document.getElementById('party-members-pills');
+      const breakdownContainer = document.getElementById('party-breakdown-list');
+
+      document.getElementById('bill-item-count').innerText = `${state.billItems.length} Items`;
+
+      container.innerHTML = state.billItems.map(item => `
+        <div class="bg-brand-darkBlue p-3 rounded-2xl border border-brand-cardBorder flex items-center justify-between gap-2">
+          <div>
+            <span class="block text-xs font-bold text-white">${item.name}</span>
+            <span class="text-[11px] font-mono text-blue-400">£${item.price.toFixed(2)} • Assigned to: <span class="text-slate-300">${item.assignedTo.join(', ')}</span></span>
+          </div>
+          <button onclick="removeBillItem(${item.id})" class="text-slate-500 hover:text-red-400 text-xs px-2"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      `).join('');
+
+      partyContainer.innerHTML = state.partyMembers.map(m => `
+        <span class="px-3 py-1 bg-brand-darkBlue border border-brand-cardBorder rounded-xl text-xs font-mono font-bold text-blue-300 flex items-center gap-2">
+          <i class="fa-solid fa-user text-amber-400"></i> ${m}
+        </span>
+      `).join('');
+
+      let subtotal = 0;
+      state.billItems.forEach(item => { subtotal += item.price; });
+      const service = subtotal * 0.125;
+      const vat = subtotal * 0.20;
+      const grandTotal = subtotal + service;
+
+      document.getElementById('bill-subtotal').innerText = `£${subtotal.toFixed(2)}`;
+      document.getElementById('bill-service').innerText = `£${service.toFixed(2)}`;
+      document.getElementById('bill-vat').innerText = `£${vat.toFixed(2)}`;
+      document.getElementById('bill-grand-total').innerText = `£${grandTotal.toFixed(2)}`;
+
+      const memberTotals = {};
+      state.partyMembers.forEach(m => memberTotals[m] = 0);
+
+      state.billItems.forEach(item => {
+        const share = item.price / item.assignedTo.length;
+        item.assignedTo.forEach(m => {
+          if (memberTotals[m] !== undefined) memberTotals[m] += share;
+        });
+      });
+
+      breakdownContainer.innerHTML = state.partyMembers.map(m => {
+        const rawShare = memberTotals[m] || 0;
+        const totalWithService = rawShare * 1.125;
+        return `
+          <div class="flex justify-between items-center text-xs font-mono bg-brand-darkBlue px-3 py-2 rounded-xl border border-brand-cardBorder">
+            <span class="text-slate-200 font-bold">${m}</span>
+            <span class="text-blue-400 font-bold">£${totalWithService.toFixed(2)}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function addBillItem() {
+      const name = document.getElementById('new-item-name').value;
+      const price = parseFloat(document.getElementById('new-item-price').value);
+      if (!name || isNaN(price)) { showToast("Enter valid item name and price", "error"); return; }
+
+      state.billItems.push({ id: Date.now(), name: name, price: price, assignedTo: ['You', 'Alex'] });
+      document.getElementById('new-item-name').value = '';
+      document.getElementById('new-item-price').value = '';
+      renderBillSplitter();
+      showToast("Item added to receipt");
+    }
+
+    function removeBillItem(id) {
+      state.billItems = state.billItems.filter(i => i.id !== id);
+      renderBillSplitter();
+    }
+
+    function loadSampleReceipt() {
+      state.billItems = [
+        { id: 1, name: 'Wagyu Ribeye Steak (400g)', price: 85.00, assignedTo: ['Alex', 'You'] },
+        { id: 2, name: 'Barolo DOCG Red Wine 2018', price: 120.00, assignedTo: ['Alex', 'Sarah', 'Marcus', 'You'] },
+        { id: 3, name: 'Black Truffle Tagliolini', price: 38.00, assignedTo: ['Sarah'] },
+        { id: 4, name: 'Tiramisu Speciale', price: 16.00, assignedTo: ['Marcus', 'You'] }
+      ];
+      renderBillSplitter();
+      showToast("Sample Mayfair receipt loaded (£328.50)");
+    }
+
+    function addPartyMemberPrompt() {
+      const name = prompt("Enter guest name:");
+      if (name && !state.partyMembers.includes(name)) {
+        state.partyMembers.push(name);
+        renderBillSplitter();
+        showToast(`Added guest: ${name}`);
+      }
+    }
+
+    function triggerGroupPaymentLinks() {
+      showToast("Monzo & Apple Pay split links successfully dispatched to guests!");
+      logSystemEvent("Split payment links dispatched via Monzo API.");
+    }
+
+    function populateB2BTableDropdown() {
+      const sel = document.getElementById('b2b-table-select');
+      const tables = currentVenueMapTables['picolinos'] || generate15Tables();
+      sel.innerHTML = tables.filter(t => t.status !== 'cancellation').map(t => `<option value="${t.id}">${t.id} — ${t.quality} (${t.seats} Seats)</option>`).join('');
+    }
+
+    function renderB2BStatusList() {
+      const list = document.getElementById('b2b-pos-status-list');
+      const tables = currentVenueMapTables['picolinos'] || generate15Tables();
+
+      list.innerHTML = tables.map(t => `
+        <div class="flex justify-between items-center bg-brand-royalBg p-2.5 rounded-xl border border-brand-cardBorder text-xs font-mono">
+          <div>
+            <span class="font-bold text-white">${t.id}</span>
+            <span class="text-slate-400 ml-2">${t.quality}</span>
+          </div>
+          <div>
+            ${t.status === 'available' ? '<span class="text-blue-400">Available</span>' : t.status === 'cancellation' ? '<span class="text-amber-400 font-bold">⚡ Flash Drop Active</span>' : '<span class="text-slate-500">Occupied</span>'}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function handleB2BCancellationSubmit(e) {
+      e.preventDefault();
+      const tableId = document.getElementById('b2b-table-select').value;
+      const minSpend = parseFloat(document.getElementById('b2b-min-spend').value) || 200;
+      const hours = parseFloat(document.getElementById('b2b-hours').value) || 2.0;
+
+      const tables = currentVenueMapTables['picolinos'];
+      const table = tables.find(t => t.id === tableId);
+      if (table) table.status = 'cancellation';
+
+      const newDrop = {
+        id: `DROP-${Date.now().toString().slice(-3)}`,
+        restaurantId: 'picolinos',
+        restaurantName: 'Picolinos — Mayfair',
+        tableNum: tableId,
+        tableQuality: table ? table.quality : 'VIP Booth',
+        seats: table ? table.seats : 4,
+        basePrice: minSpend,
+        secondsRemaining: hours * 3600,
+        initialHours: hours
+      };
+
+      state.flashDrops.unshift(newDrop);
+      renderFlashMarketplace();
+      populateB2BTableDropdown();
+      renderB2BStatusList();
+
+      showToast(`Successfully published ${tableId} to Flash Drops Marketplace!`);
+      logSystemEvent(`B2B Portal: Table ${tableId} published as cancellation drop.`);
+    }
+
+    function togglePOSSync() {
+      state.posSyncActive = !state.posSyncActive;
+      const btn = document.getElementById('pos-sync-btn');
+      if (state.posSyncActive) {
+        btn.className = "px-4 py-2 bg-blue-500/20 border border-blue-500/40 text-blue-300 rounded-xl text-xs font-mono font-bold flex items-center gap-2";
+        btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span> POS Sync Active (Lightspeed)`;
+        showToast("Lightspeed POS synchronization re-established");
+      } else {
+        btn.className = "px-4 py-2 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-xl text-xs font-mono font-bold flex items-center gap-2";
+        btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400"></span> POS Sync Offline (Manual Mode)`;
+        showToast("POS synchronization paused", "error");
+      }
+    }
+
+    function clearPhantomBookings() {
+      showToast("Purged 3 phantom hold locks. Inventory reconciled.");
+      logSystemEvent("Phantom hold locks purged across POS terminals.");
+    }
+
+    let checkoutContext = null;
+
+    function openCheckoutModal(dropId) {
+      const drop = state.flashDrops.find(d => d.id === dropId);
+      if (!drop) return;
+      const decay = calculateDecayedPrice(drop.basePrice, drop.secondsRemaining);
+
+      checkoutContext = {
+        title: `${drop.restaurantName} — Table ${drop.tableNum}`,
+        spec: `Table for ${drop.seats} (${drop.tableQuality})`,
+        basePrice: drop.basePrice,
+        discountPct: decay.discountPct,
+        finalPrice: decay.finalPrice
+      };
+
+      document.getElementById('checkout-subtitle').innerText = checkoutContext.title;
+      document.getElementById('checkout-table-spec').innerText = checkoutContext.spec;
+      document.getElementById('checkout-base-price').innerText = `£${checkoutContext.basePrice.toFixed(2)}`;
+      document.getElementById('checkout-discount-val').innerText = `-${checkoutContext.discountPct}% OFF`;
+      document.getElementById('checkout-final-price').innerText = `£${checkoutContext.finalPrice}`;
+
+      document.getElementById('checkout-modal').classList.remove('hidden');
+    }
+
+    function openCheckoutModalForSelected() {
+      if (!state.selectedTableForCheckout) return;
+      const { venue, table } = state.selectedTableForCheckout;
+      const decay = calculateDecayedPrice(table.price, 7200);
+
+      checkoutContext = {
+        title: `${venue.name} — ${venue.location} (${table.id})`,
+        spec: `Table for ${table.seats} (${table.quality})`,
+        basePrice: table.price,
+        discountPct: decay.discountPct,
+        finalPrice: decay.finalPrice
+      };
+
+      document.getElementById('checkout-subtitle').innerText = checkoutContext.title;
+      document.getElementById('checkout-table-spec').innerText = checkoutContext.spec;
+      document.getElementById('checkout-base-price').innerText = `£${checkoutContext.basePrice.toFixed(2)}`;
+      document.getElementById('checkout-discount-val').innerText = `-${checkoutContext.discountPct}% OFF`;
+      document.getElementById('checkout-final-price').innerText = `£${checkoutContext.finalPrice}`;
+
+      document.getElementById('checkout-modal').classList.remove('hidden');
+    }
+
+    function closeCheckoutModal() {
+      document.getElementById('checkout-modal').classList.add('hidden');
+    }
+
+    function processSimulatedPayment(method) {
+      closeCheckoutModal();
+      document.getElementById('ticket-venue-name').innerText = checkoutContext.title;
+      document.getElementById('ticket-time-spec').innerText = `Seating Time: In 1 Hour • Pre-paid via ${method}`;
+      document.getElementById('ticket-ref-code').innerText = `REF-DINO-${Math.floor(1000 + Math.random() * 9000)}`;
+      document.getElementById('ticket-modal').classList.remove('hidden');
+      showToast(`Payment processed successfully via ${method}!`);
+      logSystemEvent(`Table secured & payment processed via ${method}. QR ticket generated.`);
+    }
+
+    function closeTicketModal() {
+      document.getElementById('ticket-modal').classList.add('hidden');
+    }
+
+    function initAnalyticsChart() {
+      const ctx = document.getElementById('revenueChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'],
+          datasets: [
+            {
+              label: 'Recovered Revenue (Dino-Eats)',
+              data: [85000, 98000, 115000, 134000, 156000, 178000, 205000, 230000, 265000, 298000],
+              borderColor: '#0022D6',
+              backgroundColor: 'rgba(0, 34, 214, 0.1)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Traditional Phantom Loss',
+              data: [120000, 115000, 110000, 105000, 98000, 92000, 88000, 82000, 78000, 72000],
+              borderColor: '#ef4444',
+              backgroundColor: 'transparent',
+              borderDash: [5, 5],
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#cbd5e1', font: { family: 'Inter', size: 11 } } } },
+          scales: {
+            x: { grid: { color: 'rgba(20, 34, 84, 0.4)' }, ticks: { color: '#94a3b8' } },
+            y: { grid: { color: 'rgba(20, 34, 84, 0.4)' }, ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+    }
+
+    function updateAlgoConfig() {
+      const cap = document.getElementById('algo-cap').value;
+      document.getElementById('algo-cap-val').innerText = `${cap}% Maximum Discount`;
+    }
+
+    function logSystemEvent(msg) {
+      const timestamp = new Date().toLocaleTimeString();
+      state.systemLogs.unshift(`[${timestamp}] ${msg}`);
+      document.getElementById('log-count').innerText = state.systemLogs.length;
+      document.getElementById('logs-content').innerHTML = state.systemLogs.map(l => `<div>${l}</div>`).join('');
+    }
+
+    function toggleSystemLogs() {
+      const drawer = document.getElementById('logs-drawer');
+      drawer.classList.toggle('hidden');
+    }
+
+    function exportJSONData() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+      const dlAnchorElem = document.createElement('a');
+      dlAnchorElem.setAttribute("href", dataStr);
+      dlAnchorElem.setAttribute("download", "dino_eats_state_export.json");
+      dlAnchorElem.click();
+      showToast("Dino-Eats state exported as JSON successfully!");
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `glass-card px-4 py-3 rounded-2xl text-xs font-mono font-bold shadow-xl border flex items-center gap-2 ${type === 'error' ? 'border-red-500/50 text-red-300' : 'border-blue-500/50 text-blue-300'}`;
+      toast.innerHTML = `<i class="fa-solid ${type === 'error' ? 'fa-circle-exclamation text-red-400' : 'fa-circle-check text-blue-400'}"></i> ${message}`;
+      container.appendChild(toast);
+      setTimeout(() => { toast.remove(); }, 3500);
+    }
+  </script>
+</body>
+</html>
